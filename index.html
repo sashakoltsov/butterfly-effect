@@ -176,11 +176,63 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #ear-r { transform-box: fill-box; transform-origin: left bottom; animation: wiggle-r 1.5s ease-in-out infinite; }
 @keyframes wiggle-l { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(22deg); } }
 @keyframes wiggle-r { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-22deg); } }
+
+/* Mobile Menu Styles */
+#menu-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: white;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 8px;
+  cursor: pointer;
+  z-index: 110;
+  display: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  color: var(--color-text-primary);
+}
+
+#mobile-overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+@media (max-width: 768px) {
+  #menu-toggle { display: flex; align-items: center; justify-content: center; }
+  #sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  #sidebar.open {
+    transform: translateX(0);
+  }
+  #mobile-overlay { display: block; pointer-events: none; }
+  #mobile-overlay.open { opacity: 1; pointer-events: auto; }
+}
 </style>
 </head>
 <body>
 
 <div id="app">
+  <div id="mobile-overlay"></div>
+  <button id="menu-toggle" aria-label="Toggle Menu">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+
   <div id="sidebar">
     <div class="sidebar-header">
       <h2>Gilbert</h2>
@@ -654,6 +706,21 @@ exportBtn.addEventListener('click', () => {
   }
   
   requestAnimationFrame(drawFrame);
+});
+
+// Mobile Menu Toggle Logic
+const menuToggle = document.getElementById('menu-toggle');
+const sidebar = document.getElementById('sidebar');
+const mobileOverlay = document.getElementById('mobile-overlay');
+
+menuToggle.addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+  mobileOverlay.classList.toggle('open');
+});
+
+mobileOverlay.addEventListener('click', () => {
+  sidebar.classList.remove('open');
+  mobileOverlay.classList.remove('open');
 });
 </script>
 </body>
