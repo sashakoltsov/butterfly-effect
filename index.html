@@ -151,6 +151,20 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
   filter: blur(10px);
 }
 
+/* Mobile Tap Text */
+#mobile-tap-text {
+  display: none;
+  position: absolute;
+  bottom: 40px;
+  width: 100%;
+  text-align: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  pointer-events: none;
+  z-index: 10;
+}
+
 /* ---- BUTTERFLY ANIMATIONS ---- */
 #mover-x { animation: move-x 3s ease-in-out infinite; }
 #mover-y { animation: move-y 3s ease-in-out infinite; }
@@ -218,6 +232,7 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
   }
   #mobile-overlay { display: block; pointer-events: none; }
   #mobile-overlay.open { opacity: 1; pointer-events: auto; }
+  #mobile-tap-text { display: block; }
 }
 </style>
 </head>
@@ -262,6 +277,7 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
   <div id="canvas-container">
     <div id="cursor-glow"></div>
     <div id="status-overlay">Recording...</div>
+    <div id="mobile-tap-text">I look where you tap.</div>
     <!-- Wrappers for range movement -->
     <div id="mover-x">
       <div id="mover-y">
@@ -501,10 +517,13 @@ function drawGraph(key) {
   svg.innerHTML = s;
   
   svg.querySelectorAll('.handle').forEach(el => {
-    el.addEventListener('mousedown', e => {
+    const startDrag = e => {
       activeHandle = { key: el.dataset.key, node: el.dataset.node };
-      e.preventDefault(); e.stopPropagation();
-    });
+      if(e.cancelable) e.preventDefault(); 
+      e.stopPropagation();
+    };
+    el.addEventListener('mousedown', startDrag);
+    el.addEventListener('touchstart', startDrag, {passive: false});
   });
   
   const code = `cubic-bezier(${g.p1.x.toFixed(2)}, ${g.p1.y.toFixed(2)}, ${g.p2.x.toFixed(2)}, ${g.p2.y.toFixed(2)})`;
@@ -533,25 +552,45 @@ function applySpeed(key) {
 const canvasContainer = document.getElementById('canvas-container');
 const cursorGlow = document.getElementById('cursor-glow');
 
-canvasContainer.addEventListener('mousemove', e => {
+function handleCanvasGlowMove(e) {
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
   cursorGlow.style.opacity = 1;
   const rect = canvasContainer.getBoundingClientRect();
-  cursorGlow.style.left = (e.clientX - rect.left) + 'px';
-  cursorGlow.style.top = (e.clientY - rect.top) + 'px';
-});
+  cursorGlow.style.left = (clientX - rect.left) + 'px';
+  cursorGlow.style.top = (clientY - rect.top) + 'px';
+}
 
-canvasContainer.addEventListener('mouseleave', () => {
-  cursorGlow.style.opacity = 0;
-});
+canvasContainer.addEventListener('mousemove', handleCanvasGlowMove);
+canvasContainer.addEventListener('touchmove', handleCanvasGlowMove, {passive: true});
+canvasContainer.addEventListener('touchstart', handleCanvasGlowMove, {passive: true});
 
-// Global Mouse Events
-document.addEventListener('mousemove', e => {
+canvasContainer.addEventListener('mouseleave', () => { cursorGlow.style.opacity = 0; });
+canvasContainer.addEventListener('touchend', () => { cursorGlow.style.opacity = 0; });
+
+// Global Mouse / Touch Events
+function handleGlobalMove(e) {
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+
   if (activeHandle) {
     const { key, node } = activeHandle;
     const svg = document.getElementById(`ease-svg-${key}`);
     const r = svg.getBoundingClientRect();
-    const sx = (e.clientX - r.left) * (SZ / r.width);
-    const sy = (e.clientY - r.top) * (SZ / r.height);
+    const sx = (clientX - r.left) * (SZ / r.width);
+    const sy = (clientY - r.top) * (SZ / r.height);
     const nx = Math.max(0, Math.min(1, (sx - PAD) / G));
     const ny = Math.max(-0.5, Math.min(1.5, 1 - (sy - PAD) / G));
     
@@ -561,6 +600,7 @@ document.addEventListener('mousemove', e => {
       animGroups[key].p2.x = +nx.toFixed(3); animGroups[key].p2.y = +ny.toFixed(3);
     }
     drawGraph(key);
+    if(e.cancelable) e.preventDefault(); // Prevent scrolling while dragging graph
     return;
   }
   
@@ -570,7 +610,7 @@ document.addEventListener('mousemove', e => {
   const sr = bobGroup.getBoundingClientRect(); // Grabs LIVE location due to wrappers
   const ecx = sr.left + ((44.4 + 10) / 109) * sr.width;
   const ecy = sr.top + ((21.7 + 20) / 92) * sr.height;
-  const dx = e.clientX - ecx, dy = e.clientY - ecy;
+  const dx = clientX - ecx, dy = clientY - ecy;
   const dist = Math.sqrt(dx*dx + dy*dy) || 1;
   const maxR = sr.width * 0.4;
   const f = Math.min(dist, maxR) / maxR;
@@ -585,9 +625,14 @@ document.addEventListener('mousemove', e => {
   
   eyeTX = baseOffsetX + moveX;
   eyeTY = baseOffsetY + moveY;
-});
+}
 
-document.addEventListener('mouseup', () => { activeHandle = null; });
+document.addEventListener('mousemove', handleGlobalMove);
+document.addEventListener('touchmove', handleGlobalMove, {passive: false});
+
+function handleGlobalUp() { activeHandle = null; }
+document.addEventListener('mouseup', handleGlobalUp);
+document.addEventListener('touchend', handleGlobalUp);
 
 (function animEyes() {
   eyeCX += (eyeTX - eyeCX) * 0.05;
